@@ -4,13 +4,18 @@ import datetime
 import sys
 if sys.platform == 'darwin':
     import matplotlib
-    matplotlib.use("TkAgg")
-
-import matplotlib.pyplot as plt
+    matplotlib.use("TkAgg")  # use this backend to prevent macosX bug
+import matplotlib.pyplot as plt  # should be put after bugfix
 from matplotlib.ticker import FormatStrFormatter
-from max_iter import max_iter
+from max_iter import max_iter, img_show, verbose
 
-print(max_iter)
+# Algorithm's name
+name = 'det_ls'  # Deterministic Local Search Algorithm
+
+# timestamp
+ts = '{:%d%m_%H_%M_%s}'.format(datetime.datetime.now())
+
+# io
 max_iter = int(max_iter['max_iter'])
 
 # Memory for found solutions
@@ -29,8 +34,10 @@ solution_memory.append(solution)
 # Generate move pool
 swaps = create_swaps(job_sequence)
 
+# Memory for goal function value per swap evaluation
 swap_mem = []
 
+# Local Search untill no local improvement found
 for i in range(max_iter):
     print("iteration", i)
     local_optimum = True
@@ -38,18 +45,23 @@ for i in range(max_iter):
         swap_solution = evaluate_job_sequence(perform_swap(job_sequence, swap))
         swap_mem.append(swap_solution)
         if swap_solution < solution_memory[-1]:
-            print('better solution found!')
-            print('current solution quality:', swap_solution)
+            if verbose:
+                print('better solution found!')
+            if verbose:
+                print('current solution quality:', swap_solution)
             solution_memory.append(swap_solution)
             job_sequence = perform_swap(job_sequence, swap)
             local_optimum = False
             break
     if local_optimum:
         print('local optimum')
-        break
+        break  # end algorithm when local optimum found
 
-# calculate relative error with best found solution
+# Write solution path to external file
 
+solution_path = 'solutions/solution'+ts+'_'+name
+df = pd.DataFrame(solution_memory)
+df.to_csv(solution_path, sep=',')
 
 # Plot and save performance function
 fig, axes = plt.subplots(1, 3, figsize=(20, 10))
@@ -67,9 +79,9 @@ axes[2].bar(np.arange(len(solution_memory)), (solution_memory - min(solution_mem
 axes[2].set_title('error vs best (%)')
 axes[2].set_xlabel('iterations')
 axes[2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-filepath = 'img/fig{:%d%m_%H_%m_%s}.png'.format(datetime.datetime.now())
+filepath = 'img/fig'+ts+'.png'
 
 plt.savefig(filepath)
-os.chmod(filepath, 777)
-
-subprocess.Popen(['open ' + filepath], shell=True)
+os.chmod(filepath, 777)  # extra permissions for opening file automatically in darwin environment
+if img_show:
+    subprocess.Popen(['open ' + filepath], shell=True)

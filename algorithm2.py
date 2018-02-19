@@ -9,6 +9,15 @@ import matplotlib.pyplot as plt  # should be put after bugfix
 from matplotlib.ticker import FormatStrFormatter
 from max_iter import max_iter, img_show, verbose
 
+# Algorithm's name
+name = 'stoch_ls'  # Deterministic Local Search Algorithm
+
+# timestamp
+ts = '{:%d%m_%H_%M_%s}'.format(datetime.datetime.now())
+
+# io
+max_iter = int(max_iter['max_iter'])
+
 # Memory for found solutions
 solution_memory = []
 
@@ -49,6 +58,9 @@ for i in range(max_iter):
 
 # calculate relative error with best found solution
 
+solution_path = 'solutions/solution'+ts+'_'+name
+df = pd.DataFrame(solution_memory)
+df.to_csv(solution_path+'.csv', sep=',', header=None)
 
 # Plot and save performance function
 fig, axes = plt.subplots(1, 3, figsize=(20, 10))
@@ -66,7 +78,7 @@ axes[2].bar(np.arange(len(solution_memory)), (solution_memory - min(solution_mem
 axes[2].set_title('error vs best (%)')
 axes[2].set_xlabel('iterations')
 axes[2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-filepath = 'img/fig{:%d%m_%H_%m_%s}.png'.format(datetime.datetime.now())
+filepath = 'img/'+ts+'.png'
 
 plt.savefig(filepath)
 os.chmod(filepath, 777)  # extra permissions for opening file automatically in darwin environment
