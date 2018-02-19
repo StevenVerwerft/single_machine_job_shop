@@ -18,14 +18,25 @@ def makeform(root, fields):
         row.pack(side=TOP, fill=X)
         lab.pack(side=LEFT)
         ent.pack(side=RIGHT)
+        ent.focus()
+        ent.bind('<Return>', (lambda event: root.quit()))
         entries.append(ent)
     return entries
 
 
-fieldict = {'max_iter': 20}
+fieldict = {'max_iter': 5}
 root = Tk()
 ents = makeform(root, fieldict)
+img_show = IntVar()
+imgcheckbtn = Checkbutton(root, text='IMG', variable=img_show, onvalue=1, offvalue=0)
+imgcheckbtn.select()
+imgcheckbtn.pack()
+
+verbose = IntVar()
+verbosebtn = Checkbutton(root, text='Verbose?', variable=verbose, onvalue=1, offvalue=0)
+verbosebtn.select()
+verbosebtn.pack()
+
 btn = Button(root, text='Run!', command=root.quit).pack()
 root.mainloop()
-
 max_iter = fetch(ents, fieldict)
