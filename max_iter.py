@@ -27,16 +27,18 @@ def makeform(root, fields):
 fieldict = {'max_iter': 5}
 root = Tk()
 ents = makeform(root, fieldict)
-img_show = IntVar()
-imgcheckbtn = Checkbutton(root, text='IMG', variable=img_show, onvalue=1, offvalue=0)
+img_show = BooleanVar()
+imgcheckbtn = Checkbutton(root, text='IMG', variable=img_show, onvalue=True, offvalue=False)
 imgcheckbtn.select()
 imgcheckbtn.pack()
 
-verbose = IntVar()
-verbosebtn = Checkbutton(root, text='Verbose?', variable=verbose, onvalue=1, offvalue=0)
+verbose = BooleanVar()
+verbosebtn = Checkbutton(root, text='Verbose?', variable=verbose, onvalue=True, offvalue=False)
 verbosebtn.select()
 verbosebtn.pack()
 
 btn = Button(root, text='Run!', command=root.quit).pack()
 root.mainloop()
 max_iter = fetch(ents, fieldict)
+img_show = img_show.get()
+verbose = verbose.get()

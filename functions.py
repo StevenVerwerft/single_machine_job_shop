@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import random
+import os
+import subprocess
 
 pd.set_option('display.width', 140)
 
@@ -138,3 +141,23 @@ def perform_swap(_job_df, _swap):
 
     return _temp_job_df
 
+
+def fetch(entries, fields):
+    for entry, fieldname in zip(entries, fields.keys()):
+        print(fieldname, entry.get())
+        fields.update({fieldname: entry.get()})
+    return fields
+
+
+def makeform(root, fields):
+    entries = []
+    for fieldname, fieldvalue in zip(fields.keys(), fields.values()):
+        row = Frame(root)
+        lab = Label(row, width=5, text=fieldname)
+        ent = Entry(row)
+        ent.insert(0, fieldvalue)
+        row.pack(side=TOP, fill=X)
+        lab.pack(side=LEFT)
+        ent.pack(side=RIGHT, expand=YES, fill=X)
+        entries.append(ent)
+    return entries
