@@ -147,11 +147,15 @@ class SolutionMemory(Memory):
     def last_solution(self):
         return self.memory[-1]
 
-    def plot_memory(self, starttime):
+    def plot_memory(self, starttime, label=None):
         import matplotlib.pyplot as plt
         times = [solution.timestamp - starttime for solution in self.memory]
         values = [solution.goalvalue for solution in self.memory]
-        plt.plot(times, values, label='solution space')
+
+        if label is not None:
+            plt.plot(times, values, label='{}'.format(label))
+        else:
+            plt.plot(times, values, label='Solution Path')
         plt.legend()
         plt.xlabel('runtime (s)')
         plt.ylabel('goalfunction: maximal lateness')
@@ -181,8 +185,89 @@ class SolutionMemory(Memory):
 
 class TabuList(Memory):
 
-    def __init__(self):
+    def __init__(self, max_length=None, remove='fifo'):
         super().__init__()
+        self.max_length = max_length
+        self.remove = remove
+        self.frequency_memory = []
+        self.tabu_memory = []
+
+    def update_tabulist(self, move):
+
+        self.tabu_memory.append(move)
+
+    def remove_move_fifo(self):
+        try:
+            self.tabu_memory.pop(0)
+        except IndexError:
+            if len(self.tabu_memory) == 0:
+                print('Tabu Memory already empty!')
+            else:
+                pass
+
+    def remove_move_random(self):
+
+        print('move to be deleted: {}'.format(random.choice(self.tabu_memory)))
+
+    def remove_move(self):
+
+        if self.remove == 'fifo':
+            self.remove_move_fifo()
+        elif self.remove == 'random':
+            self.remove_move_random()
+
+    def check_tabu_status(self, move):
+        """checks if the move passed to the tabulist object is tabu on the active memory"""
+
+        if move in self.tabu_memory:
+            print('the move is in the active tabulist')
+            print('find another move!')
+            return False  # The move cannot be accepted, check for another move!
+
+        else:
+            if self.max_length is not None:
+                if len(self.tabu_memory) > self.max_length:
+                    self.remove_move()
+
+            print('the move will now be added to the active tabulist')
+            self.update_tabulist(move)  # add move to active tabulist
+            self.find_move_and_update(move)  # add move to frequency memory
+            return True  # The move can be accepted!
+
+    def clear_tabulist(self):
+
+        self.tabu_memory = []
+
+    def find_move_and_update(self, move):
+
+        move_found = False
+        for tabumove in self.frequency_memory:
+            if tabumove.move == move:
+                tabumove.update_frequency()
+                print('updated frequency: ', tabumove)
+                move_found = True
+                break  # escape from the search
+
+        # if move not found in frequencymemory
+        # happens when it's the first time a move has been selected
+        if not move_found:
+            self.frequency_memory.append(TabuMove(move, frequency=1))
+
+
+class TabuMove:
+
+    def __init__(self, move, frequency):
+        self.move = move
+        self.frequency = frequency
+
+    def update_frequency(self):
+        self.frequency += 1
+
+    def __str__(self):
+        return 'Move(({}, {}), {})'.format(self.move[0], self.move[1], self.frequency)
+
+    def __repr__(self):
+        return str(self)
 
 
 class LocalSearch:
@@ -207,17 +292,26 @@ class LocalSearch:
         self.best_solution_memory = SolutionMemory()
         self.first_x_memory = SolutionMemory(max_length=self.x_improvements)
 
+        self.tabu_list = TabuList()
+
         # start clock
         self.starttime = time.time()
         self.best_solution_memory.update_memory(solution=Solution(goalfunctionvalue=self.instance.goalvalue,
                                                                   move=(None, None),
                                                                   timestamp=self.starttime))
 
-    def solve(self, verbose=True):
+    def solve(self, verbose=True, **kwargs):
+
+        try:
+            show_iter = kwargs['show_iter']
+        except KeyError:
+            show_iter = True
 
         for i in range(self.max_iter):
-            if verbose:
+            if verbose or show_iter:
+                print(50*'--')
                 print("Iteration ", i)
+                print(50*'--')
             local_optimum = True
             improvement_found = False
             max_improvements_reached = False
@@ -252,24 +346,17 @@ class LocalSearch:
                 # when max amount x, of improvements is found, break the local neighbourhood search
                 if self.first_x_memory.current_length >= self.first_x_memory.max_length:
                     final_solution = self.first_x_memory.best_solution
-                    if verbose and False:
-                        print("Max amount of improvements found")
-                        print("Best Improving Solution: \n", final_solution)
-                        print('breaking current local search...')
-
                     self.instance.update_job_df(self.instance.swap_jobs(swap=swap))
                     self.instance.update_goal()
                     self.best_solution_memory.update_memory(solution=final_solution)
                     if verbose:
+                        print('{} solutions found'.format(self.first_x_memory.current_length))
                         print('added solution {} to best solution memory'.format(final_solution))
                     # improvement found, no local optimum
                     local_optimum = False
                     max_improvements_reached = True
                     self.first_x_memory.clear_memory()  # ready for next iteration
                     break
-
-            if verbose and False:
-                print('All swaps evaluated...')
 
             if improvement_found and not max_improvements_reached:
                 # If less than x improving moves are found in local neighbourhood
@@ -281,16 +368,23 @@ class LocalSearch:
                 # update best solution memory
                 self.best_solution_memory.update_memory(solution=final_solution)
 
+                if verbose:
+                    print('{} solutions found'.format(self.first_x_memory.current_length))
+                    print('added solution {} to best solution memory'.format(final_solution))
+
                 # improvement found, no local optimum
                 local_optimum = False
                 self.first_x_memory.clear_memory()  # ready for next iteration
 
             # case of local otpimum
             if local_optimum:
-                if verbose and False:
-                    print('No improving solutions are found, stuck in a local optimum')
-                    print('Best Global Solution encounterd: {}'.format(self.best_solution_memory.best_solution))
+                if verbose:
+                    print(50*'--')
+                    print('LOCAL OPTIMUM')
+                    print('Last solution found: {}'.format(self.best_solution_memory.last_solution()))
+                    print('Best Global Solution encountered: {}'.format(self.best_solution_memory.best_solution))
                     print('Best Solution found in local neighbourhood: {}'.format(iteration_memory.best_solution))
+                    print(50*'--')
 
                 swap = iteration_memory.best_solution.move
                 self.instance.update_job_df(self.instance.swap_jobs(swap=swap))
@@ -298,14 +392,16 @@ class LocalSearch:
 
                 self.best_solution_memory.update_memory(solution=iteration_memory.best_solution)
                 if verbose:
-                    print('Added Non-improving solution {} to best solution memory')
+                    print('Added Non-improving solution {} '
+                          'to best solution memory'.format(iteration_memory.best_solution))
 
-                self.first_x_memory.clear_memory()  # ready for next iteration
+                self.first_x_memory.clear_memory()  # ready for next iteration, this should be empty?
 
         if verbose:
             print("Total runtime: ", time.time() - self.starttime)
 
-        self.best_solution_memory.plot_memory(self.starttime)
+        plotlabel = 'LS_I{}_X{}'.format(self.max_iter, self.x_improvements)
+        self.best_solution_memory.plot_memory(self.starttime, label=plotlabel)
 
 
 class LocalSearchGui(Frame):
@@ -331,10 +427,20 @@ class LocalSearchGui(Frame):
             self.entries.append(ent)
 
         self.verbose = BooleanVar()
-        verbosebtn = Checkbutton(self, text='Verbose?', variable=self.verbose,
+        self.showiterations = BooleanVar()
+        btnrow = Frame(self)
+
+        verbosebtn = Checkbutton(btnrow, text='Verbose?', variable=self.verbose,
                                  onvalue=True, offvalue=False)
+        iterbtn = Checkbutton(btnrow, text='Show Iter?', variable=self.showiterations,
+                              onvalue=True, offvalue=False)
+
         verbosebtn.select()
+        iterbtn.select()
+
+        btnrow.pack(fill=X)
         verbosebtn.pack()
+        iterbtn.pack()
         runbtn = Button(self, text='Run!', command=parent.quit).pack()
 
     def fetch_entries(self):
