@@ -21,6 +21,7 @@ def local_search_initializer(use_gui=True):
     # use for the checkbuttons
     verbosity = False  # shows best solution per iteration
     show_iter = True  # shows the current iteration
+    show_img = True  # makes a plot of the best solution for each iteration
     tabu_remove = 'fifo'  # the move removal procedure for the tabulist
 
     if use_gui:
@@ -37,15 +38,18 @@ def local_search_initializer(use_gui=True):
         metaparameters = GUI.fetch_entries()
         verbosity = GUI.verbose.get()
         show_iter = GUI.showiterations.get()
+        show_img = GUI.show_img.get()
         tabu_remove = GUI.remove_var.get()
 
         metaparameters.update({'verbose': verbosity,
                                'show_iter': show_iter,
+                               'show_img': show_img,
                                'tabu_remove': tabu_remove})
 
     else:
         metaparameters = metaparameters_defaults.update({'verbose': verbosity,
                                                          'show_iter': show_iter,
+                                                         'show_img': show_img,
                                                          'tabu_remove': tabu_remove})
 
     return metaparameters
@@ -105,26 +109,30 @@ if __name__ == '__main__':
     # solve a problem flow:
     # 1. get the algorithm's metaprameters
     initializer = local_search_initializer()
+    for instancepath in sorted_aphanumeric(os.listdir('instances'))[:2]:
 
-    # 2. get the Jobschedule object for the problem
-    instance = JobSchedule(pathname='instance.csv')
+        # 2. get the Jobschedule object for the problem
+        instance = JobSchedule(pathname='instances/'+instancepath)
 
-    # 3. instantiate the algorithm
-    algorithm = local_search_intantiator(initializer, instance)
+        # 3. instantiate the algorithm
+        algorithm = local_search_intantiator(initializer, instance)
 
-    # 4. solve the instance
-    solved_instance = algorithm.solve()
+        # 4. solve the instance
+        solved_instance = algorithm.solve(verbose=initializer['verbose'],
+                                          show_iter=initializer['show_iter'],
+                                          show_img=initializer['show_img'])
 
-    # 5. create a dataframe with found solutions and timestamps
-    solution = algorithm.best_solution_memory.create_solution_df(algorithm.starttime)
+        # 5. create a dataframe with found solutions and timestamps
+        solution = algorithm.best_solution_memory.create_solution_df(algorithm.starttime)
 
-    # 6. write this solutions to a destination folder
-    try:
-        os.mkdir('solutionfolder')
-    except:
-        # then the folder already exists
-        pass
-    solution.to_csv('solutionfolder/{}'.format(algorithm.solution_path))
+        # 6. write this solutions to a destination folder
+        try:
+            os.mkdir('solutionfolder/{}'.format(instancepath.split('.')[0]))
+        except:
+            # then the folder already exists
+            pass
+
+        solution.to_csv('solutionfolder/{}/{}'.format(instancepath.split('.')[0], algorithm.solution_path))
 
     quit()
 

@@ -333,6 +333,11 @@ class LocalSearch:
         except KeyError:
             show_iter = True
 
+        try:
+            show_img = kwargs['show_img']
+        except KeyError:
+            show_img = True
+
         for i in range(self.max_iter):
             if verbose or show_iter:
                 print(50*'--')
@@ -466,7 +471,9 @@ class LocalSearch:
 
         if self.use_tabu_memory:
             plotlabel = 'TS_I{}_X{}_TL{}'.format(self.max_iter, self.x_improvements, self.tabu_length)
-        self.best_solution_memory.plot_memory(self.starttime, label=plotlabel)
+
+        if show_img:
+            self.best_solution_memory.plot_memory(self.starttime, label=plotlabel)
 
         self.solution_path = datetime.datetime.fromtimestamp(self.starttime).strftime('%d_%m_%H%M') + plotlabel + '.csv'
 
@@ -498,6 +505,7 @@ class LocalSearchGui(Frame):
 
         self.verbose = BooleanVar()
         self.showiterations = BooleanVar()
+        self.show_img = BooleanVar()
         btnrow = Frame(self)
 
         verbosebtn = Checkbutton(btnrow, text='Verbose?', variable=self.verbose,
@@ -505,12 +513,17 @@ class LocalSearchGui(Frame):
         iterbtn = Checkbutton(btnrow, text='Show Iter?', variable=self.showiterations,
                               onvalue=True, offvalue=False)
 
+        imgbtn = Checkbutton(btnrow, text='Plot?', variable=self.show_img,
+                             onvalue=True, offvalue=False)
+
         verbosebtn.select()
         iterbtn.select()
+        imgbtn.select()
 
         btnrow.pack(fill=X)
         verbosebtn.pack()
         iterbtn.pack()
+        imgbtn.pack()
 
         removerow = Frame(self)
         removelabel = Label(removerow, text='Tabulist Remove Mechanism:')
