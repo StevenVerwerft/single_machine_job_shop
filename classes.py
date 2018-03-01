@@ -6,6 +6,7 @@
 import pandas as pd
 import numpy as np
 import time
+import datetime
 import random
 import os
 import subprocess
@@ -161,7 +162,8 @@ class SolutionMemory(Memory):
         plt.ylabel('goalfunction: maximal lateness')
         plt.title('Local Search for minimal maximal lateness')
 
-        filepath = 'img/fig' + str(starttime) + '.png'
+        stamp = datetime.datetime.fromtimestamp(starttime).strftime('%d_%m_%H%M')
+        filepath = 'img/' + stamp + str(label) + '.png'  # if label = None, label must be converted to string
 
         try:
             filepath = str(kwargs['custom_name']) + '.png'
