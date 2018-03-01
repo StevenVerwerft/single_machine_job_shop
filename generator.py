@@ -89,6 +89,3 @@ for instance_number in range(1, amount_instances+1):
     instance.to_csv(instance_path, index=False)
 
 quit()
-instance.to_csv("instance2.csv", index=False)
-
-

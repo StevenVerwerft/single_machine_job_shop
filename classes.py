@@ -151,6 +151,16 @@ class SolutionMemory(Memory):
     def last_solution(self):
         return self.memory[-1]
 
+    def get_best_solution(self):
+
+        return sorted(self.memory, key=lambda key: key.goalvalue)[0]
+
+    def clear_memory(self):
+
+        self.memory = []
+        self.current_length = 0
+        self.best_solution = Solution(np.inf, (None, None))
+
     def plot_memory(self, starttime, label=None, **kwargs):
         import matplotlib.pyplot as plt
         times = [solution.timestamp - starttime for solution in self.memory]
@@ -370,11 +380,9 @@ class LocalSearch:
                 # also checks of this neighbour is a non-tabu solution, tabu solutions will never be put in
                 # the first-x memory structure.
                 if goalval < self.best_solution_memory.last_solution().goalvalue:
-                    if verbose:
-                        print('improving local solution: ', Solution(goalval, swap, ts))
-                    # print('last best solution: ', self.best_solution_memory.last_solution())
                     if self.use_tabu_memory \
                             and self.tabu_list.check_tabu_status(swap):
+
                         # print('I\'m tabu', swap)
                         # print('tabulist: ', self.tabu_list.tabu_memory)
                         # if statement true, the selected move is tabu and cannot be set as the final solution
@@ -383,6 +391,9 @@ class LocalSearch:
                         # if the statement is false, the tabulist will update its active memory and its
                         # frequency memory with the selected move.
                         continue
+
+                    if verbose:
+                        print('improving (Non-Tabu) local solution: ', Solution(goalval, swap, ts))
                     self.first_x_memory.update_memory(solution=Solution(goalfunctionvalue=goalval,
                                                                         move=swap,
                                                                         timestamp=ts))
@@ -410,6 +421,7 @@ class LocalSearch:
                     self.best_solution_memory.update_memory(solution=final_solution)
                     if verbose:
                         print('{} solutions found'.format(self.first_x_memory.current_length))
+                        print(self.first_x_memory.memory)
                         print('added solution {} to best solution memory'.format(final_solution))
                         print('Tabulist:\n', self.tabu_list.tabu_memory)
                     # improvement found, no local optimum
@@ -422,6 +434,7 @@ class LocalSearch:
                 # If less than x improving moves are found in local neighbourhood
                 # Choose best solution from improving moves
                 final_solution = self.first_x_memory.best_solution
+                # final_solution = self.first_x_memory.get_best_solution()
 
                 # tabulist and frequency memory will be updated by the selected move
                 self.tabu_list.update_tabulist(final_solution.move)
@@ -447,14 +460,16 @@ class LocalSearch:
             if local_optimum:
 
                 # sort the iteration memory from highest to lowest
-                iteration_memory.memory = sorted(iteration_memory.memory, key=lambda key: key.goalvalue, reverse=True)
+                iteration_memory.memory = sorted(iteration_memory.memory, key=lambda key: key.goalvalue)
+                print(iteration_memory.memory[:5])
                 for solution in iteration_memory.memory:
                     if self.tabu_list.check_tabu_status(solution.move):
                         # if this move is tabu, then move to next best move
                         continue
                     else:
-                        swap = solution.move
-                        if verbose:
+                        final_solution = solution
+                        swap = final_solution.move
+                        if verbose or True:
                             print(50 * '--')
                             print('LOCAL OPTIMUM')
                             print('Last solution found: {}'.format(self.best_solution_memory.last_solution()))
@@ -463,7 +478,7 @@ class LocalSearch:
                             print('Best (Non-Tabu) Solution found in local neighbourhood: {}'.format(solution))
                             print(50 * '--')
                         break
-
+                print('hello Dave...')
                 # swap = iteration_memory.best_solution.move
 
                 # update the tabulist and frequency memory with the selected move
@@ -474,10 +489,10 @@ class LocalSearch:
                 self.instance.update_job_df(self.instance.swap_jobs(swap=swap))
                 self.instance.update_goal()
 
-                self.best_solution_memory.update_memory(solution=iteration_memory.best_solution)
-                if verbose:
+                self.best_solution_memory.update_memory(solution=final_solution)
+                if verbose or True:
                     print('Added Non-improving solution {} '
-                          'to best solution memory'.format(iteration_memory.best_solution))
+                          'to best solution memory'.format(final_solution))
                     print('Tabulist:\n', self.tabu_list.tabu_memory)
 
                 self.first_x_memory.clear_memory()  # ready for next iteration, this should be empty?
