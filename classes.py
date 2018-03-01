@@ -367,12 +367,13 @@ class LocalSearch:
                 # also checks of this neighbour is a non-tabu solution, tabu solutions will never be put in
                 # the first-x memory structure.
                 if goalval < self.best_solution_memory.last_solution().goalvalue:
-                    print('current local solution: ', Solution(goalval, swap, ts))
-                    print('last best solution: ', self.best_solution_memory.last_solution())
+                    if verbose:
+                        print('improving local solution: ', Solution(goalval, swap, ts))
+                    # print('last best solution: ', self.best_solution_memory.last_solution())
                     if self.use_tabu_memory \
                             and self.tabu_list.check_tabu_status(swap):
-                        print('I\'m tabu', swap)
-                        print('tabulist: ', self.tabu_list.tabu_memory)
+                        # print('I\'m tabu', swap)
+                        # print('tabulist: ', self.tabu_list.tabu_memory)
                         # if statement true, the selected move is tabu and cannot be set as the final solution
                         # the flow will be directed to the evaluation of the next swap
 
