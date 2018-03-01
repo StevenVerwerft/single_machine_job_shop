@@ -6,6 +6,7 @@
 import pandas as pd
 import numpy as np
 import time
+import datetime
 import random
 import os
 import subprocess
@@ -129,6 +130,9 @@ class Solution:
     def __str__(self):
         return "({0}, {1}, {2})".format(self.goalvalue, self.move, self.timestamp)
 
+    def __repr__(self):
+        return str(self)
+
 
 class SolutionMemory(Memory):
 
@@ -147,7 +151,7 @@ class SolutionMemory(Memory):
     def last_solution(self):
         return self.memory[-1]
 
-    def plot_memory(self, starttime, label=None):
+    def plot_memory(self, starttime, label=None, **kwargs):
         import matplotlib.pyplot as plt
         times = [solution.timestamp - starttime for solution in self.memory]
         values = [solution.goalvalue for solution in self.memory]
@@ -161,7 +165,13 @@ class SolutionMemory(Memory):
         plt.ylabel('goalfunction: maximal lateness')
         plt.title('Local Search for minimal maximal lateness')
 
-        filepath = 'img/fig' + str(starttime) + '.png'
+        stamp = datetime.datetime.fromtimestamp(starttime).strftime('%d_%m_%H%M')
+        filepath = 'img/' + stamp + str(label) + '.png'  # if label = None, label must be converted to string
+
+        try:
+            filepath = str(kwargs['custom_name']) + '.png'
+        except:
+            pass
         plt.savefig(filepath)
         os.chmod(filepath, 777)
         subprocess.Popen(['open ' + filepath], shell=True)
@@ -194,6 +204,9 @@ class TabuList(Memory):
 
     def update_tabulist(self, move):
 
+        if self.max_length is not None:
+            if len(self.tabu_memory) >= self.max_length:
+                self.remove_move()
         self.tabu_memory.append(move)
 
     def remove_move_fifo(self):
@@ -208,6 +221,7 @@ class TabuList(Memory):
     def remove_move_random(self):
 
         print('move to be deleted: {}'.format(random.choice(self.tabu_memory)))
+        print('random removal to be implemented...')
 
     def remove_move(self):
 
@@ -220,31 +234,24 @@ class TabuList(Memory):
         """checks if the move passed to the tabulist object is tabu on the active memory"""
 
         if move in self.tabu_memory:
-            print('the move is in the active tabulist')
-            print('find another move!')
-            return False  # The move cannot be accepted, check for another move!
+            # print('the move is in the active tabulist')
+            # print('find another move!')
+            return True  # The move cannot be accepted, check for another move!
 
         else:
-            if self.max_length is not None:
-                if len(self.tabu_memory) > self.max_length:
-                    self.remove_move()
-
-            print('the move will now be added to the active tabulist')
-            self.update_tabulist(move)  # add move to active tabulist
-            self.find_move_and_update(move)  # add move to frequency memory
-            return True  # The move can be accepted!
+            return False  # The move can be accepted!
 
     def clear_tabulist(self):
 
         self.tabu_memory = []
 
-    def find_move_and_update(self, move):
+    def update_frequency_memory(self, move):
 
         move_found = False
         for tabumove in self.frequency_memory:
             if tabumove.move == move:
                 tabumove.update_frequency()
-                print('updated frequency: ', tabumove)
+                # print('updated frequency: ', tabumove)
                 move_found = True
                 break  # escape from the search
 
@@ -272,7 +279,20 @@ class TabuMove:
 
 class LocalSearch:
 
-    def __init__(self, jobschedule, max_iter, x_improvements, track_solution=True, EDD_rule=True):
+    def __init__(self, jobschedule, max_iter, x_improvements, track_solution=True, EDD_rule=True,
+                 tabulength=None, tabu_remove='fifo'):
+
+        """
+
+        :param jobschedule: Jobschedule object
+        :param max_iter: number of iterations for the local search algorithm
+        :param x_improvements: number of local improving solutions should be found before moving to next iteration
+        :param track_solution: use a memory to track the goalvalue of every evauated move (inefficient)
+        :param EDD_rule: use the Earliest Due Date rule to initiate a good solution
+        :param tabulength: the maximal amount of moves on the tabulist
+        :param tabu_remove: the method to remove moves from the tabulist if max tabulength reached
+        (options: 'fifo', 'random')
+        """
 
         self.instance = jobschedule  # jobschedule object
         if EDD_rule:
@@ -286,13 +306,22 @@ class LocalSearch:
         self.x_improvements = x_improvements
         self.track_solution = track_solution
         self.verbose = True
+        self.tabu_length = tabulength
+        self.tabu_remove = tabu_remove
 
         # memory structures
         self.solution_memory = SolutionMemory()
         self.best_solution_memory = SolutionMemory()
         self.first_x_memory = SolutionMemory(max_length=self.x_improvements)
+        self.tabu_list = TabuList(max_length=self.tabu_length, remove=self.tabu_remove)
 
-        self.tabu_list = TabuList()
+        if self.tabu_length is not None:
+            self.use_tabu_memory = True
+        else:
+            self.use_tabu_memory = False
+
+        # IO
+        self.solution_path = 'nothing_yet.csv'
 
         # start clock
         self.starttime = time.time()
@@ -306,6 +335,11 @@ class LocalSearch:
             show_iter = kwargs['show_iter']
         except KeyError:
             show_iter = True
+
+        try:
+            show_img = kwargs['show_img']
+        except KeyError:
+            show_img = True
 
         for i in range(self.max_iter):
             if verbose or show_iter:
@@ -333,11 +367,27 @@ class LocalSearch:
                                                                          timestamp=ts))
 
                 # checks if local neighbour is better than last encountered solution
+                # also checks of this neighbour is a non-tabu solution, tabu solutions will never be put in
+                # the first-x memory structure.
                 if goalval < self.best_solution_memory.last_solution().goalvalue:
+                    if verbose:
+                        print('improving local solution: ', Solution(goalval, swap, ts))
+                    # print('last best solution: ', self.best_solution_memory.last_solution())
+                    if self.use_tabu_memory \
+                            and self.tabu_list.check_tabu_status(swap):
+                        # print('I\'m tabu', swap)
+                        # print('tabulist: ', self.tabu_list.tabu_memory)
+                        # if statement true, the selected move is tabu and cannot be set as the final solution
+                        # the flow will be directed to the evaluation of the next swap
+
+                        # if the statement is false, the tabulist will update its active memory and its
+                        # frequency memory with the selected move.
+                        continue
                     self.first_x_memory.update_memory(solution=Solution(goalfunctionvalue=goalval,
                                                                         move=swap,
                                                                         timestamp=ts))
-                    improvement_found = True
+                    improvement_found = True  # used as flag
+                    # print statement will be deleted in future update
                     if verbose and False:
                         print("first x improving solutions:")
                         for sol in self.first_x_memory.memory:
@@ -345,13 +395,23 @@ class LocalSearch:
 
                 # when max amount x, of improvements is found, break the local neighbourhood search
                 if self.first_x_memory.current_length >= self.first_x_memory.max_length:
+
                     final_solution = self.first_x_memory.best_solution
-                    self.instance.update_job_df(self.instance.swap_jobs(swap=swap))
+
+                    # tabulist and frequency memory will be updated by the selected move
+                    self.tabu_list.update_tabulist(final_solution.move)
+                    self.tabu_list.update_frequency_memory(final_solution.move)
+
+                    # update the job sequence object
+                    self.instance.update_job_df(self.instance.swap_jobs(swap=final_solution.move))
                     self.instance.update_goal()
+
+                    # update best solution found
                     self.best_solution_memory.update_memory(solution=final_solution)
                     if verbose:
                         print('{} solutions found'.format(self.first_x_memory.current_length))
                         print('added solution {} to best solution memory'.format(final_solution))
+                        print('Tabulist:\n', self.tabu_list.tabu_memory)
                     # improvement found, no local optimum
                     local_optimum = False
                     max_improvements_reached = True
@@ -362,6 +422,12 @@ class LocalSearch:
                 # If less than x improving moves are found in local neighbourhood
                 # Choose best solution from improving moves
                 final_solution = self.first_x_memory.best_solution
+
+                # tabulist and frequency memory will be updated by the selected move
+                self.tabu_list.update_tabulist(final_solution.move)
+                self.tabu_list.update_frequency_memory(final_solution.move)
+
+                # update the job sequence object
                 self.instance.update_job_df(self.instance.swap_jobs(final_solution.move))
                 self.instance.update_goal()
 
@@ -371,6 +437,7 @@ class LocalSearch:
                 if verbose:
                     print('{} solutions found'.format(self.first_x_memory.current_length))
                     print('added solution {} to best solution memory'.format(final_solution))
+                    print('Tabulist:\n', self.tabu_list.tabu_memory)
 
                 # improvement found, no local optimum
                 local_optimum = False
@@ -378,15 +445,32 @@ class LocalSearch:
 
             # case of local otpimum
             if local_optimum:
-                if verbose:
-                    print(50*'--')
-                    print('LOCAL OPTIMUM')
-                    print('Last solution found: {}'.format(self.best_solution_memory.last_solution()))
-                    print('Best Global Solution encountered: {}'.format(self.best_solution_memory.best_solution))
-                    print('Best Solution found in local neighbourhood: {}'.format(iteration_memory.best_solution))
-                    print(50*'--')
 
-                swap = iteration_memory.best_solution.move
+                # sort the iteration memory from highest to lowest
+                iteration_memory.memory = sorted(iteration_memory.memory, key=lambda key: key.goalvalue, reverse=True)
+                for solution in iteration_memory.memory:
+                    if self.tabu_list.check_tabu_status(solution.move):
+                        # if this move is tabu, then move to next best move
+                        continue
+                    else:
+                        swap = solution.move
+                        if verbose:
+                            print(50 * '--')
+                            print('LOCAL OPTIMUM')
+                            print('Last solution found: {}'.format(self.best_solution_memory.last_solution()))
+                            print(
+                                'Best Global Solution encountered: {}'.format(self.best_solution_memory.best_solution))
+                            print('Best (Non-Tabu) Solution found in local neighbourhood: {}'.format(solution))
+                            print(50 * '--')
+                        break
+
+                # swap = iteration_memory.best_solution.move
+
+                # update the tabulist and frequency memory with the selected move
+                self.tabu_list.update_tabulist(swap)
+                self.tabu_list.update_frequency_memory(swap)
+
+                # update the job sequence object
                 self.instance.update_job_df(self.instance.swap_jobs(swap=swap))
                 self.instance.update_goal()
 
@@ -394,6 +478,7 @@ class LocalSearch:
                 if verbose:
                     print('Added Non-improving solution {} '
                           'to best solution memory'.format(iteration_memory.best_solution))
+                    print('Tabulist:\n', self.tabu_list.tabu_memory)
 
                 self.first_x_memory.clear_memory()  # ready for next iteration, this should be empty?
 
@@ -401,7 +486,17 @@ class LocalSearch:
             print("Total runtime: ", time.time() - self.starttime)
 
         plotlabel = 'LS_I{}_X{}'.format(self.max_iter, self.x_improvements)
-        self.best_solution_memory.plot_memory(self.starttime, label=plotlabel)
+
+        if self.use_tabu_memory:
+            plotlabel = 'TS_I{}_X{}_TL{}'.format(self.max_iter, self.x_improvements, self.tabu_length)
+
+        if show_img:
+            self.best_solution_memory.plot_memory(self.starttime, label=plotlabel)
+
+        self.solution_path = datetime.datetime.fromtimestamp(self.starttime).strftime('%d_%m_%H%M') + plotlabel + '.csv'
+
+        # self.solution_memory.plot_memory(self.starttime, label='solution memory', custom_name='test')
+        return self.instance
 
 
 class LocalSearchGui(Frame):
@@ -428,6 +523,7 @@ class LocalSearchGui(Frame):
 
         self.verbose = BooleanVar()
         self.showiterations = BooleanVar()
+        self.show_img = BooleanVar()
         btnrow = Frame(self)
 
         verbosebtn = Checkbutton(btnrow, text='Verbose?', variable=self.verbose,
@@ -435,16 +531,37 @@ class LocalSearchGui(Frame):
         iterbtn = Checkbutton(btnrow, text='Show Iter?', variable=self.showiterations,
                               onvalue=True, offvalue=False)
 
+        imgbtn = Checkbutton(btnrow, text='Plot?', variable=self.show_img,
+                             onvalue=True, offvalue=False)
+
         verbosebtn.select()
         iterbtn.select()
+        imgbtn.select()
 
         btnrow.pack(fill=X)
         verbosebtn.pack()
         iterbtn.pack()
-        runbtn = Button(self, text='Run!', command=parent.quit).pack()
+        imgbtn.pack()
+
+        removerow = Frame(self)
+        removelabel = Label(removerow, text='Tabulist Remove Mechanism:')
+        removerow.pack()
+        removelabel.pack()
+        self.remove_var = StringVar()
+        remove_options = ['fifo', 'random']
+        for opt in remove_options:
+            Radiobutton(removerow, text=opt, command=self.onPress, variable=self.remove_var, value=opt).pack(anchor=W)
+        self.remove_var.set('fifo')
+
+        runbtn = Button(removerow, text='Run!', command=parent.quit).pack()
 
     def fetch_entries(self):
 
         for (fieldname, entry) in zip(self.fieldnames.keys(), self.entries):
             self.fieldnames.update({fieldname: int(entry.get())})
         return self.fieldnames
+
+    def onPress(self):
+
+        pick = self.remove_var.get()
+        return pick
