@@ -109,7 +109,7 @@ if __name__ == '__main__':
     # solve a problem flow:
     # 1. get the algorithm's metaprameters
     initializer = local_search_initializer()
-    for instancepath in sorted_aphanumeric(os.listdir('instances'))[:2]:
+    for instancepath in sorted_aphanumeric(os.listdir('instances'))[:30]:
 
         # 2. get the Jobschedule object for the problem
         instance = JobSchedule(pathname='instances/'+instancepath)

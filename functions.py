@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import os
 import subprocess
+from tkinter import *
 
 pd.set_option('display.width', 140)
 
