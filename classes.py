@@ -317,6 +317,9 @@ class LocalSearch:
         else:
             self.use_tabu_memory = False
 
+        # IO
+        self.solution_path = 'nothing_yet.csv'
+
         # start clock
         self.starttime = time.time()
         self.best_solution_memory.update_memory(solution=Solution(goalfunctionvalue=self.instance.goalvalue,
@@ -460,9 +463,12 @@ class LocalSearch:
             print("Total runtime: ", time.time() - self.starttime)
 
         plotlabel = 'LS_I{}_X{}'.format(self.max_iter, self.x_improvements)
+
         if self.use_tabu_memory:
             plotlabel = 'TS_I{}_X{}_TL{}'.format(self.max_iter, self.x_improvements, self.tabu_length)
         self.best_solution_memory.plot_memory(self.starttime, label=plotlabel)
+
+        self.solution_path = datetime.datetime.fromtimestamp(self.starttime).strftime('%d_%m_%H%M') + plotlabel + '.csv'
 
         # self.solution_memory.plot_memory(self.starttime, label='solution memory', custom_name='test')
         return self.instance
