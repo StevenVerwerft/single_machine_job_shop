@@ -1,4 +1,3 @@
-
 # ----------------------------------------------------------------------------------------------------------------------
 # IMPORTS
 # ----------------------------------------------------------------------------------------------------------------------
@@ -12,11 +11,14 @@ import os
 import subprocess
 # fix for MACOSX GUI crash
 import sys
+
 if sys.platform == 'darwin':
     import matplotlib
+
     matplotlib.use("TkAgg")  # use this backend to prevent macosX bug
     import matplotlib.pyplot as plt
     from tkinter import *
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # CLASSES
@@ -91,7 +93,7 @@ class MovePool:
     def generate_moves(self):
 
         for i in range(self.n_jobs - 1):
-            for j in range(i+1, self.n_jobs):
+            for j in range(i + 1, self.n_jobs):
                 self.move_pool.append((i, j))
 
     def move_shuffle(self):
@@ -115,7 +117,6 @@ class Memory:
         self.current_length = len(self.memory)
 
     def clear_memory(self):
-
         self.memory = []
         self.current_length = 0
 
@@ -325,7 +326,7 @@ class LocalSearch:
         self.first_x_memory = SolutionMemory(max_length=self.x_improvements)
         self.tabu_list = TabuList(max_length=self.tabu_length, remove=self.tabu_remove)
 
-        if self.tabu_length is not None:
+        if self.tabu_length is not None and self.tabu_length is not 0:
             self.use_tabu_memory = True
         else:
             self.use_tabu_memory = False
@@ -353,9 +354,9 @@ class LocalSearch:
 
         for i in range(self.max_iter):
             if verbose or show_iter:
-                print(50*'--')
+                print(50 * '--')
                 print("Iteration ", i)
-                print(50*'--')
+                print(50 * '--')
             local_optimum = True
             improvement_found = False
             max_improvements_reached = False
@@ -382,7 +383,6 @@ class LocalSearch:
                 if goalval < self.best_solution_memory.last_solution().goalvalue:
                     if self.use_tabu_memory \
                             and self.tabu_list.check_tabu_status(swap):
-
                         # print('I\'m tabu', swap)
                         # print('tabulist: ', self.tabu_list.tabu_memory)
                         # if statement true, the selected move is tabu and cannot be set as the final solution
@@ -524,7 +524,6 @@ class LocalSearchGui(Frame):
         self.entries = []
 
         for (fieldname, fieldvalue) in fieldnames.items():
-
             row = Frame(self)
             lab = Label(row, width=15, text=fieldname)
             ent = Entry(row)
@@ -568,7 +567,8 @@ class LocalSearchGui(Frame):
             Radiobutton(removerow, text=opt, command=self.onPress, variable=self.remove_var, value=opt).pack(anchor=W)
         self.remove_var.set('fifo')
 
-        runbtn = Button(removerow, text='Run!', command=parent.quit).pack()
+        runbtn = Button(removerow, text='Run!', command=parent.quit)
+        runbtn.pack()
 
     def fetch_entries(self):
 
